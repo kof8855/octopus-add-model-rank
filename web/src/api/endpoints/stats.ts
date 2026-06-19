@@ -210,18 +210,20 @@ export function useStatsModels() {
         queryFn: async () => {
             return apiClient.get<StatsModelRank[]>('/api/v1/stats/models');
         },
-        select: (data) => data.map((item): StatsModelRankFormatted => ({
-            model_name: item.model_name,
-            input_token: formatCount(item.input_token),
-            output_token: formatCount(item.output_token),
-            total_token: formatCount(item.input_token + item.output_token),
-            input_cost: formatMoney(item.input_cost),
-            output_cost: formatMoney(item.output_cost),
-            total_cost: formatMoney(item.input_cost + item.output_cost),
-            wait_time: formatTime(item.wait_time),
-            request_success: formatCount(item.request_success),
-            request_failed: formatCount(item.request_failed),
-            request_count: formatCount(item.request_success + item.request_failed),
+        select: (data) => data.map((item) => ({
+            raw: item,
+            formatted: {
+                input_token: formatCount(item.input_token),
+                output_token: formatCount(item.output_token),
+                total_token: formatCount(item.input_token + item.output_token),
+                input_cost: formatMoney(item.input_cost),
+                output_cost: formatMoney(item.output_cost),
+                total_cost: formatMoney(item.input_cost + item.output_cost),
+                wait_time: formatTime(item.wait_time),
+                request_success: formatCount(item.request_success),
+                request_failed: formatCount(item.request_failed),
+                request_count: formatCount(item.request_success + item.request_failed),
+            }
         })),
         refetchInterval: 30000,
         refetchOnMount: 'always',
