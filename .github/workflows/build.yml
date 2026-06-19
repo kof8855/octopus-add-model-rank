@@ -1,0 +1,62 @@
+name: build
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout octopus-add-model-rank
+        uses: actions/checkout@v5
+        with:
+          path: octopus-add-model-rank
+
+      - name: Checkout axonhub (dependency)
+        uses: actions/checkout@v5
+        with:
+          repository: looplj/axonhub
+          ref: unstable
+          path: axonhub
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 'latest'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'latest'
+          cache: 'pnpm'
+          cache-dependency-path: octopus-add-model-rank/web/pnpm-lock.yaml
+
+      - name: Build
+        run: |
+          cd octopus-add-model-rank
+          bash scripts/build.sh release
+        env:
+          GIT_VERSION: dev
+
+      - name: Upload binaries (artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: octopus-binaries
+          path: octopus-add-model-rank/build/archives/*.zip
