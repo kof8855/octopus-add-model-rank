@@ -43,6 +43,16 @@ type StatsAPIKey struct {
 	StatsMetrics
 }
 
+// StatsModelRank 按模型名聚合的排行统计（跨所有渠道）
+type StatsModelRank struct {
+	ModelName  string `json:"model_name" gorm:"primaryKey;size:256"`
+	StatsMetrics
+}
+
+func (StatsModelRank) TableName() string {
+	return "stats_model_rank"
+}
+
 // Add aggregates another StatsMetrics into the current one.
 func (s *StatsMetrics) Add(delta StatsMetrics) {
 	s.InputToken += delta.InputToken

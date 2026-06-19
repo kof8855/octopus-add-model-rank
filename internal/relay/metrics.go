@@ -93,6 +93,11 @@ func (m *RelayMetrics) Save(ctx context.Context, success bool, err error, attemp
 		})
 	}
 
+	// 按模型名聚合排行统计（跨所有渠道）
+	if m.ActualModel != "" {
+		op.StatsModelRankUpdate(m.ActualModel, globalStats)
+	}
+
 	log.Infof("relay complete: model=%s, channel=%d(%s), success=%t, duration=%dms, input_token=%d, output_token=%d, input_cost=%f, output_cost=%f, total_cost=%f, attempts=%d",
 		m.RequestModel, channelID, channelName, success, duration.Milliseconds(),
 		m.Stats.InputToken, m.Stats.OutputToken,

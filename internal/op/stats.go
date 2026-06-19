@@ -36,6 +36,10 @@ var statsAPIKeyCache = cache.New[int, model.StatsAPIKey](16)
 var statsAPIKeyCacheNeedUpdate = make(map[int]struct{})
 var statsAPIKeyCacheNeedUpdateLock sync.Mutex
 
+var statsModelRankCache = cache.New[string, model.StatsModelRank](16)
+var statsModelRankCacheNeedUpdate = make(map[string]struct{})
+var statsModelRankCacheNeedUpdateLock sync.Mutex
+
 func StatsSaveDBTask() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -90,7 +94,15 @@ func StatsSaveDB(ctx context.Context) error {
 	statsAPIKeyCacheNeedUpdate = make(map[int]struct{})
 	statsAPIKeyCacheNeedUpdateLock.Unlock()
 
-	return persistStatsSnapshots(ctx, totalSnap, dailySnap, hourlyAll, channelIDs, modelIDs, apiKeyIDs)
+	statsModelRankCacheNeedUpdateLock.Lock()
+	modelRankNames := make([]string, 0, len(statsModelRankCacheNeedUpdate))
+	for name := range statsModelRankCacheNeedUpdate {
+		modelRankNames = append(modelRankNames, name)
+	}
+	statsModelRankCacheNeedUpdate = make(map[string]struct{})
+	statsModelRankCacheNeedUpdateLock.Unlock()
+
+	return persistStatsSnapshots(ctx, totalSnap, dailySnap, hourlyAll, channelIDs, modelIDs, apiKeyIDs, modelRankNames)
 }
 
 func persistStatsSnapshots(
@@ -101,6 +113,7 @@ func persistStatsSnapshots(
 	channelIDs []int,
 	modelIDs []int,
 	apiKeyIDs []int,
+	modelRankNames []string,
 ) error {
 	dbConn := db.GetDB().WithContext(ctx)
 
@@ -157,6 +170,16 @@ func persistStatsSnapshots(
 		}
 	}
 
+	for _, name := range modelRankNames {
+		mr, ok := statsModelRankCache.Get(name)
+		if !ok {
+			continue
+		}
+		if result := dbConn.Save(&mr); result.Error != nil {
+			return result.Error
+		}
+	}
+
 	return nil
 }
 
@@ -196,7 +219,15 @@ func statsSaveDBWithDailyOverride(ctx context.Context, dailyOverride model.Stats
 	statsAPIKeyCacheNeedUpdate = make(map[int]struct{})
 	statsAPIKeyCacheNeedUpdateLock.Unlock()
 
-	return persistStatsSnapshots(ctx, totalSnap, dailyOverride, hourlyAll, channelIDs, modelIDs, apiKeyIDs)
+	statsModelRankCacheNeedUpdateLock.Lock()
+	modelRankNames := make([]string, 0, len(statsModelRankCacheNeedUpdate))
+	for name := range statsModelRankCacheNeedUpdate {
+		modelRankNames = append(modelRankNames, name)
+	}
+	statsModelRankCacheNeedUpdate = make(map[string]struct{})
+	statsModelRankCacheNeedUpdateLock.Unlock()
+
+	return persistStatsSnapshots(ctx, totalSnap, dailyOverride, hourlyAll, channelIDs, modelIDs, apiKeyIDs, modelRankNames)
 }
 
 func StatsDailyUpdate(ctx context.Context, metrics model.StatsMetrics) error {
@@ -273,6 +304,21 @@ func StatsModelUpdate(stats model.StatsModel) error {
 	statsModelCacheNeedUpdateLock.Lock()
 	statsModelCacheNeedUpdate[stats.ID] = struct{}{}
 	statsModelCacheNeedUpdateLock.Unlock()
+	return nil
+}
+
+func StatsModelRankUpdate(modelName string, metrics model.StatsMetrics) error {
+	mrCache, ok := statsModelRankCache.Get(modelName)
+	if !ok {
+		mrCache = model.StatsModelRank{
+			ModelName: modelName,
+		}
+	}
+	mrCache.StatsMetrics.Add(metrics)
+	statsModelRankCache.Set(modelName, mrCache)
+	statsModelRankCacheNeedUpdateLock.Lock()
+	statsModelRankCacheNeedUpdate[modelName] = struct{}{}
+	statsModelRankCacheNeedUpdateLock.Unlock()
 	return nil
 }
 
@@ -361,6 +407,14 @@ func StatsAPIKeyList() []model.StatsAPIKey {
 		apiKeys = append(apiKeys, v)
 	}
 	return apiKeys
+}
+
+func StatsModelRankList() []model.StatsModelRank {
+	result := make([]model.StatsModelRank, 0, statsModelRankCache.Len())
+	for _, v := range statsModelRankCache.GetAll() {
+		result = append(result, v)
+	}
+	return result
 }
 
 func StatsHourlyGet() []model.StatsHourly {
@@ -470,6 +524,20 @@ func statsRefreshCache(ctx context.Context) error {
 		}
 	}
 	statsHourlyCacheLock.Unlock()
+
+	var loadedModelRanks []model.StatsModelRank
+	result = dbConn.Find(&loadedModelRanks)
+	if result.Error != nil {
+		return fmt.Errorf("failed to get model rank stats: %v", result.Error)
+	}
+
+	statsModelRankCache.Clear()
+	statsModelRankCacheNeedUpdateLock.Lock()
+	statsModelRankCacheNeedUpdate = make(map[string]struct{})
+	statsModelRankCacheNeedUpdateLock.Unlock()
+	for _, v := range loadedModelRanks {
+		statsModelRankCache.Set(v.ModelName, v)
+	}
 
 	return nil
 }

@@ -4,6 +4,7 @@ import { Activity } from './activity';
 import { Total } from './total';
 import { StatsChart } from './chart';
 import { Rank } from './rank';
+import { ModelRank } from './model-rank';
 import { PageWrapper } from '@/components/common/PageWrapper';
 
 export function Home() {
@@ -13,6 +14,7 @@ export function Home() {
             <Activity />
             <StatsChart />
             <Rank />
+            <ModelRank />
         </PageWrapper>
     );
 }

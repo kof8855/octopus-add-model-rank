@@ -63,6 +63,24 @@ export interface StatsAPIKey extends StatsMetrics {
 export interface StatsAPIKeyFormatted extends StatsMetricsFormatted {
     api_key_id: number;
 }
+
+/**
+ * 按模型名聚合的排行统计
+ */
+export interface StatsModelRank {
+    model_name: string;
+    input_token: number;
+    output_token: number;
+    input_cost: number;
+    output_cost: number;
+    wait_time: number;
+    request_success: number;
+    request_failed: number;
+}
+
+export interface StatsModelRankFormatted extends StatsMetricsFormatted {
+    model_name: string;
+}
 /**
  * 获取今日统计数据 Hook
  */
@@ -167,6 +185,33 @@ export function useStatsAPIKey() {
         },
         select: (data) => data.map((item): StatsAPIKeyFormatted => ({
             api_key_id: item.api_key_id,
+            input_token: formatCount(item.input_token),
+            output_token: formatCount(item.output_token),
+            total_token: formatCount(item.input_token + item.output_token),
+            input_cost: formatMoney(item.input_cost),
+            output_cost: formatMoney(item.output_cost),
+            total_cost: formatMoney(item.input_cost + item.output_cost),
+            wait_time: formatTime(item.wait_time),
+            request_success: formatCount(item.request_success),
+            request_failed: formatCount(item.request_failed),
+            request_count: formatCount(item.request_success + item.request_failed),
+        })),
+        refetchInterval: 30000,
+        refetchOnMount: 'always',
+    });
+}
+
+/**
+ * 获取模型排行统计数据 Hook
+ */
+export function useStatsModels() {
+    return useQuery({
+        queryKey: ['stats', 'models'],
+        queryFn: async () => {
+            return apiClient.get<StatsModelRank[]>('/api/v1/stats/models');
+        },
+        select: (data) => data.map((item): StatsModelRankFormatted => ({
+            model_name: item.model_name,
             input_token: formatCount(item.input_token),
             output_token: formatCount(item.output_token),
             total_token: formatCount(item.input_token + item.output_token),

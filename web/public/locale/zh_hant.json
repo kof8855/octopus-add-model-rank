@@ -138,6 +138,14 @@
             "sortByTokens": "Tokens",
             "noData": "暫無排行數據",
             "successRate": "成功率"
+        },
+        "modelRank": {
+            "title": "模型排行",
+            "sortByCost": "金額",
+            "sortByCount": "次數",
+            "sortByTokens": "Tokens",
+            "noData": "暫無排行數據",
+            "successRate": "成功率"
         }
     },
     "setting": {
